@@ -115,4 +115,5 @@ Say `list WhatsApp reply notifications` or `list WhatsApp Business reply notific
 Say `YouTube status` or `is YouTube playing` to hear the state reported by the current YouTube media session. Notification access is required. AIVORA reports when it cannot verify the state. Pause and resume verification follows the media session that received the command.
 #   G n a n i - A I - C o m p e t i t i o n  
  #   G n a n i - A I - C o m p e t i t i o n  
+ #   G n a n i - A I - C o m p e t i t i o n  
  
