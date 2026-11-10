@@ -1,0 +1,5 @@
+# Explicit SMS draft intent
+
+`draft SMS to <recipient> that <body>` and draft text/message variants carry draftOnly=true through numeric parsing, contact/pronoun resolution, numbered contact choices, routines and saved actions. It is semantic action data, never source/authentication data. The direct-SMS planner must preserve this flag regardless of enabled sending. No settings mutation, silent direct send or post-review change to a send is allowed. Full review describes a draft whose sending remains in the messaging app.
+
+Append defaultfalse to existing data classes; preserve old ActionCodec message records byte-for-byte. Use a distinct strict smsDraftOnly tag for true and reject noncanonical/extra fields. Validate/contact-check/handoff behavior stays shared with existing DraftMessage. Existing message/text commands keep their behavior; only the explicit draft prefix selects this mode. No message is sent merely from parsing or selection; ordinary native tests stop at confirmation and keep SEND_SMS absent.

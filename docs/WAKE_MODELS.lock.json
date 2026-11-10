@@ -1,0 +1,35 @@
+{
+  "source": "https://github.com/k2-fsa/sherpa-onnx/releases/download/kws-models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01.tar.bz2",
+  "files": [
+    {
+      "path": "app/src/main/assets/models/wake-en/decoder-epoch-12-avg-2-chunk-16-left-64.onnx",
+      "sha256": "f61ebd3eed3773a44d088d53dfae92dbb6aec4839f4dcaee2d402414741663a3",
+      "bytes": 1063189
+    },
+    {
+      "path": "app/src/main/assets/models/wake-en/encoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx",
+      "sha256": "1e721676515bcd42a186979733981213c66c80db680e1cc582dfedf3be76e678",
+      "bytes": 4807159
+    },
+    {
+      "path": "app/src/main/assets/models/wake-en/joiner-epoch-12-avg-2-chunk-16-left-64.int8.onnx",
+      "sha256": "eae9da0c7e1e6c6a3f4cc42d167899c388f6c6701b94cb96320e4f55df79624c",
+      "bytes": 163380
+    },
+    {
+      "path": "app/src/main/assets/models/wake-en/keywords.txt",
+      "sha256": "ad155e90367ea679777882441c1c35021ea37ddecc0d300a5554a6fafa2f5575",
+      "bytes": 182
+    },
+    {
+      "path": "app/src/main/assets/models/wake-en/README.md",
+      "sha256": "74e42d37d63acd2366b042151d576fcc0c4917a41de339414a37f1e79f4e80e2",
+      "bytes": 726
+    },
+    {
+      "path": "app/src/main/assets/models/wake-en/tokens.txt",
+      "sha256": "fd2ded4050a55d2b1578870ba8697d02371980217806b7558bd0a5cc60f3ba53",
+      "bytes": 5006
+    }
+  ]
+}

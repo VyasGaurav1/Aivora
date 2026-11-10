@@ -1,0 +1,7 @@
+# Explicit speakerphone call requests
+
+`call <number/name> on speaker`, `on speakerphone` and `on loudspeaker` carry a per-request speakerphone flag through parsing, contact/pronoun choices, direct-call binding, immutable policy review and scheduled storage. It is never a global automatic setting. The review explicitly names the request. Direct Telecom calls include EXTRA_START_CALL_WITH_SPEAKERPHONE only when requested; omission preserves platform default routing. Call connection and audio-route success remain unverified in the application response.
+
+Existing default-audio Dial/placeCall codec records remain byte-compatible. New dialSpeaker/placeCallSpeaker tags encode true speakerphone intent with the same bounded fields; strict canonical decoding refuses extra fields. No database namespace/version change or permission addition. Dialer fallback retains the intent and tells the owner to select speakerphone there; ACTION_DIAL does not claim to apply the Telecom call extra.
+
+Native tests stay isolated to known emulator modems, with injected authentication, changed-contact refusal and cleanup. Observe the reported communication device on API31+ (https://developer.android.com/reference/android/media/AudioManager#getCommunicationDevice()) or the legacy speaker flag on API30 after call state. This is reported routing, not physical audibility, carrier connection, remote answer or real spoken approval. Physical/OEM/Bluetooth/wired-route coverage remains pending.

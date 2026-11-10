@@ -1,0 +1,18 @@
+{
+  "runtime": {
+    "name": "llama.cpp",
+    "version": "v0.8.0",
+    "commit": "8642541b255bfb5dc39cd351a178be09013a55d6",
+    "archiveSha256": "dbaf04129434d26ef902b6bd521de2d25637b2a12aadbbe35fc9216438a60e01",
+    "license": "MIT"
+  },
+  "model": {
+    "repository": "ggml-org/Qwen3-0.6B-GGUF",
+    "revision": "13ac06624948e4d8589cb4b6f90100837342fcb8",
+    "file": "Qwen3-0.6B-Q4_0.gguf",
+    "bytes": 428970080,
+    "sha256": "da2572f16c06133561ce56accaa822216f2391ef4d37fba427801cd6736417d4",
+    "baseModel": "Qwen/Qwen3-0.6B",
+    "license": "Apache-2.0"
+  }
+}

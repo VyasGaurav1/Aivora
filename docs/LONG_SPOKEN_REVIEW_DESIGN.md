@@ -1,0 +1,7 @@
+# Complete bounded spoken reviews
+
+Raise the supported complete prompt budget to1200 characters for action and connectivity reviews, using the centralized UI action descriptions by default and a complete field-preserving spelling variant for payments. Never truncate a review. Larger plans still require full on-screen review or a narrower request; paging/long arbitrary payloads remain unfinished. The existing confirmation and connectivity deadlines are not extended. A long synthesis can legitimately expire and must not proceed to a reply microphone capture.
+
+Spoken reply presentation checks exact current confirmation/plan/deadline (or the existing current network/choice identity) before and after successful speech. Interruption, replacement, expiry and output failure must not be treated as completed readback. Native TTS must signal cancellation if stopped, superseded or its output sink refuses audio; it must not drain aborted output or silently continue later chunks. This also protects the existing short reply prompts.
+
+The source/one-use confirmation gates and real Android authentication remain unchanged. Complete prompt text is not proof that physical audio was heard, recognized or approved. Verification includes pure prompt payload/budget checks, deterministic stale/interrupted speech checks and actual native TTS stopped/refusing-sink tests on API30/API35. Real echo, liveness, short replies, timing and full payment acceptance remain pending.

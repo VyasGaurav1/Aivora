@@ -1,0 +1,35 @@
+
+# Android signing credentials
+*.jks
+*.keystore
+key.properties
+
+# Android build files
+.gradle/
+**/build/
+**/.cxx/
+.cxx/
+.externalNativeBuild/
+local.properties
+
+# IDE
+.idea/
+*.iml
+
+# Android generated files
+captures/
+.externalNativeBuild/
+
+# Logs
+*.log
+api30-sdk-install.log
+emulator-*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets and environment files
+.env
+.env.*
+!.env.example

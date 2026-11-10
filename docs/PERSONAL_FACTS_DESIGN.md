@@ -1,0 +1,7 @@
+# Offline personal-fact questions and corrections
+
+Parse explicit remembered statements such as `my favourite colour is blue` into a bounded subject/value pair. Preserve the owner's value verbatim; normalize only subject identity (Unicode NFKC, case, whitespace). Natural `what is my ...`, `what's my ...`, `who is my ...` and `what about my ...` queries look up the subject locally, never execute stored content or invent a fact. Only current semantic memories from explicit owner statements/corrections with full confidence are eligible. Equal repeated values agree; conflicting values ask for a fresh explicit correction.
+
+When the owner remembers a new value for the same exact subject, retire all matching current explicit fact records and insert the replacement in the same Room transaction, under the existing privacy mutex. Private mode returns before any retirement. Preserve historical records and supersession linkage. Use the encrypted token index for candidates, without the ordinary recall's 100-result cap; exact decrypted subject matching prevents cross-subject replacement. Backfill old indexes first. Existing plaintext-free database schema/version and non-fact memories stay compatible. No local-language-model or general reasoning claim.
+
+Verify pure parsing/subject matching/ambiguity, real encrypted persistence/reopen/correction/history/private-mode/deletion, normal parser/dialogue routing and Android11/35 regressions.

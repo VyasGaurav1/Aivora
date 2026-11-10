@@ -1,0 +1,84 @@
+{
+  "speechModel": {
+    "repository": "csukuangfj/sherpa-onnx-streaming-zipformer-en-20M-2023-02-17",
+    "license": "Apache-2.0",
+    "files": [
+      {
+        "sha256": "45a7f940ecfb53d89fa270ad11b88b961e53a317203eb24b1c8e95ed208b0f30",
+        "path": "app/src/main/assets/models/stt-en-20m/decoder-epoch-99-avg-1.onnx",
+        "size": 2092272
+      },
+      {
+        "sha256": "3810755ce7c3ab26b42a8bcf39d191308fa27fb0f53358823ba46141d03b7eb3",
+        "path": "app/src/main/assets/models/stt-en-20m/encoder-epoch-99-avg-1.int8.onnx",
+        "size": 42845182
+      },
+      {
+        "sha256": "343e17dffa4f386ca206e00d3c406908f68f473c3d35968d6c3cddd5b8559a94",
+        "path": "app/src/main/assets/models/stt-en-20m/joiner-epoch-99-avg-1.onnx",
+        "size": 1026462
+      },
+      {
+        "sha256": "505f6b0e8a39f066a0794c4fb0b5689533d3bcd9d1dc5e5f47ccffeef1af9877",
+        "path": "app/src/main/assets/models/stt-en-20m/README.md",
+        "size": 304
+      },
+      {
+        "sha256": "49e3c2646595fd907228b3c6787069658f67b17377c60aeb8619c4551b2316fb",
+        "path": "app/src/main/assets/models/stt-en-20m/tokens.txt",
+        "size": 5048
+      }
+    ],
+    "revision": "d42f2d9f7ca24806fb667456a18a9f1b60f70d16"
+  },
+  "runtime": {
+    "sha256": "07e042d97f3a6bd5b7fe74d4eef0513dc01a714b16c15a903250095aba43a575",
+    "version": "2.0.1",
+    "path": "app/libs/sherpa-onnx-static-link-onnxruntime-2.0.1.aar"
+  },
+  "ttsModel": {
+    "derivedLexicon": "lexicon-aivora.txt adds a locally authored Aivora pronunciation to upstream lexicon.txt",
+    "files": [
+      {
+        "path": "app/src/main/assets/models/tts-vctk/lexicon-aivora.txt",
+        "size": 3708213,
+        "sha256": "77a82fb6172ff1106d982527c0476b1cc728b795a0ac68943b60c95ca581093d"
+      },
+      {
+        "path": "app/src/main/assets/models/tts-vctk/lexicon.txt",
+        "size": 3708181,
+        "sha256": "bdccfc6da71c45c48e2e0056fcf0aab760577c5f959f6c1b5eb3e3e916fd5a0e"
+      },
+      {
+        "path": "app/src/main/assets/models/tts-vctk/README.md",
+        "size": 536,
+        "sha256": "a3780082ea5c79b5fa0e159efea06c26569bf27bcbdb19aec545af766aaf8f37"
+      },
+      {
+        "path": "app/src/main/assets/models/tts-vctk/tokens.txt",
+        "size": 1084,
+        "sha256": "5fee2c6b238d712287f2ecb08f34a8a8b413bcb7390862ef6fb6fd6f0f8d3a17"
+      },
+      {
+        "path": "app/src/main/assets/models/tts-vctk/vits-vctk.int8.onnx",
+        "size": 39240108,
+        "sha256": "fce6a16ccab9a99910fe60d6d3c95163ff98cd9043dcfc223371a1f208ffaafd"
+      }
+    ],
+    "license": "Apache-2.0",
+    "repository": "csukuangfj/vits-vctk",
+    "revision": "5d7d647d6ea0f6206544735d74b25d3877c0f9ca"
+  },
+  "speakerModel": {
+    "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-recongition-models/3dspeaker_speech_eres2net_sv_en_voxceleb_16k.onnx",
+    "source": "iic/speech_eres2net_sv_en_voxceleb_16k",
+    "license": "Apache-2.0",
+    "files": [
+      {
+        "path": "app/src/main/assets/models/speaker-en/3dspeaker_speech_eres2net_sv_en_voxceleb_16k.onnx",
+        "size": 26485263,
+        "sha256": "c59158379255ad66e161679cca6af8d52d51e389e3224ab7d7a7baae295c2db5"
+      }
+    ]
+  }
+}

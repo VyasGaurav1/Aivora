@@ -1,0 +1,4 @@
+<resources>
+    <string name="accessibility_description">AIVORA can operate supported YouTube playback controls and, with separate opt-ins, known Wi-Fi and single-SIM mobile-data controls in the Android Internet panel when you request an action. Mobile data also requires device authentication and confirmation. Screen content is not logged or saved. This does not authorize messaging, payments, or lock-screen bypass.</string>
+    <string name="app_name">AIVORA</string>
+</resources>

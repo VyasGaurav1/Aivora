@@ -1,0 +1,6 @@
+<voice-interaction-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:sessionService="com.chronoit.aivora.platform.AivoraVoiceSessionService"
+    android:recognitionService="com.chronoit.aivora.platform.AivoraRecognitionService"
+    android:settingsActivity="com.chronoit.aivora.ui.MainActivity"
+    android:supportsAssist="true"
+    android:supportsLaunchVoiceAssistFromKeyguard="false" />
