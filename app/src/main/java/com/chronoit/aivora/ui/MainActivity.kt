@@ -429,7 +429,7 @@ open class MainActivity : ComponentActivity() {
                 InternetSettings(model, settings)
                 var searchKey by remember { mutableStateOf("") }
                 Text("Spoken web answers", style = MaterialTheme.typography.titleMedium)
-                Text("Search questions are sent to Brave. Answers are spoken. Say Show suggestions to also see them here in AIVORA.")
+                Text("Optional, online only: search questions are sent to Brave. Answers are spoken. Say Show suggestions to also see them here in AIVORA.")
                 OutlinedTextField(searchKey, { searchKey = it.take(256) }, singleLine = true,
                     visualTransformation = PasswordVisualTransformation(), label = { Text("Brave Answers API key") })
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -456,7 +456,7 @@ open class MainActivity : ComponentActivity() {
                 Text("Speech speed: ${"%.2f".format(speed)}")
                 Slider(speed, { speed = it }, valueRange = 0.5f..2f, onValueChangeFinished = { model.speechOptions(speed, settings.speechVoice) })
                 Row { (0..3).forEach { id -> TextButton(onClick = { model.speechOptions(speed, id) }) { Text("${if (settings.speechVoice == id) "✓ " else ""}Voice ${id + 1}") } } }
-                Text("Reminders, alarms and speech work offline. Online questions require a connection.")
+                Text("Reminders, alarms, speech and short questions work offline. Live web answers need a Brave key and a connection (optional).")
             }
             "Developer" -> {
                 val audit by model.audit.collectAsStateWithLifecycle()

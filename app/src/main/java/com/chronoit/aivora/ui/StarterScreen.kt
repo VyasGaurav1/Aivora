@@ -142,7 +142,7 @@ import kotlinx.coroutines.delay
                     HorizontalDivider()
                     Text("Wake listening", style = MaterialTheme.typography.titleMedium)
 
-                    Text(if (model.gnaniConfigured()) "Voice provider: Gnani (primary)" else "Voice provider: phone recognizer")
+                    Text(if (model.gnaniConfigured()) "Voice provider: Gnani (online, optional)" else "Voice provider: on-device (offline)")
 
                     Text("Keep your phone unlocked. Say Hey Jarvis or Hey Aivora, wait for the greeting, then speak. Say Goodbye when finished.")
 
@@ -168,7 +168,7 @@ import kotlinx.coroutines.delay
 
                     Text("Web answers", style = MaterialTheme.typography.titleMedium)
 
-                    Text(if (model.webSearchConfigured()) "Search key saved" else "Search key needed for web answers")
+                    Text(if (model.webSearchConfigured()) "Search key saved" else "Web answers are optional — offline answers work without a key")
 
                     val uriHandler = LocalUriHandler.current
 
