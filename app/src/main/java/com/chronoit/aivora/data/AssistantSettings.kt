@@ -21,7 +21,7 @@ data class AssistantSettings(
     val privateMode: Boolean = false,
     val internetBehavior: InternetBehavior = InternetBehavior.ASK,
     val onboardingComplete: Boolean = false,
-    val spokenReplies: Boolean = false,
+    val spokenReplies: Boolean = true,
     val speechSpeed: Float = 1f,
     val speechVoice: Int = 0,
     val handsFreeControls: Boolean = false,
@@ -55,7 +55,7 @@ class SettingsRepository(context: Context) {
         ) }.getOrDefault(AssistantIdentity())
         AssistantSettings(identity, values[privateMode] ?: false,
             InternetBehavior.entries.find { it.name == values[internetBehavior] } ?: InternetBehavior.ASK,
-            values[onboardingComplete] ?: false, values[spokenReplies] ?: false,
+            values[onboardingComplete] ?: false, values[spokenReplies] ?: true,
             (values[speechSpeed] ?: 1f).let { if (it.isFinite()) it.coerceIn(0.5f, 2f) else 1f },
             (values[speechVoice] ?: 0).coerceIn(0, 3), values[handsFreeControls] ?: false, values[wifiControls] ?: false, values[mobileDataControls] ?: false, values[directCalling] ?: false, values[directSms] ?: false, values[localReasoning] ?: true)
     }
