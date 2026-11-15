@@ -8,6 +8,13 @@
 # The 429 MB Qwen reasoning model is NOT fetched here and must NOT be
 # needed: the starter build omits it (see gradle.properties), and the
 # checkout below deliberately does not fetch Git LFS files.
+#
+# SDK setup is MANUAL (plain curl + sdkmanager). The first run
+# (43734779708, 2026-11-15) failed in 18 s because
+# android-actions/setup-android@v3 itself ran `sdkmanager tools` and the
+# obsolete SDK package named 'tools' no longer exists in the repository
+# (exit 1). That action is gone; nothing here asks sdkmanager for a
+# package that does not exist. See CI_NEXT.md §5.
 
 name: Android CI
 
@@ -30,6 +37,9 @@ jobs:
     name: Test, build and lint
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      ANDROID_HOME: ${{ runner.temp }}/android-sdk
+      ANDROID_SDK_ROOT: ${{ runner.temp }}/android-sdk
     steps:
       - name: Check out
         uses: actions/checkout@v4
@@ -46,20 +56,56 @@ jobs:
           java-version: "21"
           cache: gradle
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Install Android command-line tools
+        # cmdline-tools 16.0 (build 12266719) — the same zip the failed
+        # first run's setup action downloaded successfully, so this URL
+        # is known to exist. The zip's top directory is `cmdline-tools/`;
+        # the SDK layout requires it at `cmdline-tools/latest/`.
+        run: |
+          mkdir -p "$ANDROID_HOME/cmdline-tools"
+          cd "$ANDROID_HOME/cmdline-tools"
+          curl -fsSL -o cmdline-tools.zip "https://dl.google.com/android/repository/commandlinetools-linux-12266719_latest.zip"
+          unzip -q cmdline-tools.zip
+          mv cmdline-tools latest
+          rm cmdline-tools.zip
+          test -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
 
       - name: Install Android SDK packages
         # Matches the local toolchain (BUILD_TEST_NEXT.md):
         # compileSdk/targetSdk 37, build-tools 37.0.0,
         # NDK 28.2.13676358 and CMake 3.22.1 (native reasoning_jni).
-        # NOTE: platform android-37 was preview-only when this was
-        # written (not in the stable repository manifests). If this
-        # step fails with "package not found", see CI_NEXT.md §3.
+        #
+        # platforms;android-37 needs special handling: SDK 37 was
+        # preview-only when this was written (not in the stable
+        # repository manifests, which top out at android-36). Try the
+        # stable channel first, then the canary channel
+        # (sdkmanager --channel=3), then — last resort — the platform
+        # zip downloaded directly, exactly as the local toolchain was
+        # built (BUILD_TEST_NEXT.md §1; SHA-1 verified below). Do NOT
+        # drop compileSdk to 36 to make CI pass.
         run: |
-          sdkmanager "platform-tools" "platforms;android-37" "build-tools;37.0.0" "ndk;28.2.13676358" "cmake;3.22.1"
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
+          sdkmanager "platform-tools" "build-tools;37.0.0" "ndk;28.2.13676358" "cmake;3.22.1"
+          install_platform37_direct() {
+            echo "::warning::sdkmanager cannot find platforms;android-37 on any channel; installing the platform zip directly"
+            mkdir -p "$ANDROID_HOME/platforms"
+            cd "$ANDROID_HOME/platforms"
+            curl -fsSL -o platform-37.zip "https://dl.google.com/android/repository/platform-37.0_r01.zip"
+            echo "1a9a8c2e2a5ab8cd95f2eded7d9da037e62fbc6f  platform-37.zip" | sha1sum -c -
+            unzip -q -o platform-37.zip
+            rm platform-37.zip
+            test -f "$ANDROID_HOME/platforms/android-37.0/android.jar"
+          }
+          if ! sdkmanager "platforms;android-37"; then
+            echo "::warning::platforms;android-37 not found in the stable channel, retrying the canary channel"
+            sdkmanager --channel=3 "platforms;android-37" || install_platform37_direct
+          fi
 
       - name: Accept SDK licenses
+        # sdkmanager is on PATH via the $GITHUB_PATH entry written by
+        # the "Install Android command-line tools" step.
         run: yes | sdkmanager --licenses
 
       - name: Make gradlew executable
