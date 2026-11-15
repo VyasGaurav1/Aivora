@@ -23,7 +23,9 @@ class StarterCapabilitiesTest {
         assertNull(StarterCapabilities.label(ReasoningResult.Unavailable("No model")))
     }
     @Test fun capabilityDescriptionMatchesReleaseScope() {
-        assertTrue(StarterCapabilities.description.contains("aren't available"))
         assertTrue(StarterCapabilities.description.contains("Clock"))
+        assertTrue(StarterCapabilities.description.contains("draft"))
+        assertTrue(StarterCapabilities.description.contains("offline"))
+        assertTrue(StarterCapabilities.description.contains("never press Send"))
     }
 }

@@ -98,6 +98,7 @@ Most assistants send everything to the cloud and act the moment you ask. AIVORA 
 
 - Short general questions can use the bundled offline reasoning model — try `What is two plus two?` with **Offline question answers** enabled in Settings.
 - The first question needs space for a verified private copy of the 429 MB model, which is released when the answer finishes or is cancelled. Generated explanations are labelled unverified, and phone commands and personal-fact answers always use their dedicated paths.
+- Today that model comes from the full offline build (`git lfs pull`, then `-PaivoraIncludeLocalReasoning=true` — see Build from source). A one-time in-app download on first use is planned, not yet implemented; until then a starter install without the model answers honestly that it cannot produce a local answer.
 
 ## Quick start
 

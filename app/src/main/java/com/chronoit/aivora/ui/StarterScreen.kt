@@ -228,7 +228,7 @@ import kotlinx.coroutines.delay
 
                     if (ui.state in setOf(AssistantState.UNDERSTANDING, AssistantState.SEARCHING, AssistantState.SUMMARIZING, AssistantState.EXECUTING)) LinearProgressIndicator(Modifier.fillMaxWidth())
 
-                    Text("Reminders, alarms, and web answers.")
+                    Text("Reminders, alarms, and offline answers. Web search is optional.")
 
                     LiveTranscript(ui.voiceDraft, voice.capturing && !voice.speaking)
 
