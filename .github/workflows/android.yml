@@ -1,0 +1,101 @@
+# AIVORA — Android CI
+#
+# The only path to a green build: this VM cannot run Gradle at all
+# (no JVM here can write to a TCP socket, so the Gradle daemon protocol
+# is dead — see BUILD_TEST_NEXT.md). GitHub Actions is the build machine.
+#
+# Runs the starter build only: testDebugUnitTest, assembleDebug, lintDebug.
+# The 429 MB Qwen reasoning model is NOT fetched here and must NOT be
+# needed: the starter build omits it (see gradle.properties), and the
+# checkout below deliberately does not fetch Git LFS files.
+
+name: Android CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Test, build and lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          # Do NOT fetch LFS files. The 429 MB Qwen model is a Git LFS
+          # pointer in this repo; the starter build must not need it.
+          # (A full-offline build is a separate manual job — see CI_NEXT.md.)
+          lfs: false
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        # Matches the local toolchain (BUILD_TEST_NEXT.md):
+        # compileSdk/targetSdk 37, build-tools 37.0.0,
+        # NDK 28.2.13676358 and CMake 3.22.1 (native reasoning_jni).
+        # NOTE: platform android-37 was preview-only when this was
+        # written (not in the stable repository manifests). If this
+        # step fails with "package not found", see CI_NEXT.md §3.
+        run: |
+          sdkmanager "platform-tools" "platforms;android-37" "build-tools;37.0.0" "ndk;28.2.13676358" "cmake;3.22.1"
+
+      - name: Accept SDK licenses
+        run: yes | sdkmanager --licenses
+
+      - name: Make gradlew executable
+        # Defensive: the git mode fix (100644 -> 100755) may not survive
+        # every push path, so ensure it here rather than failing the
+        # whole run with "permission denied".
+        run: chmod +x gradlew
+
+      - name: Run unit tests, debug build and lint
+        # One invocation, in order: a test failure stops the build and
+        # lint stages, so the first red run shows the earliest failure.
+        # --no-daemon: no daemon is kept alive on the runner.
+        run: ./gradlew testDebugUnitTest assembleDebug lintDebug --no-daemon --stacktrace --console=plain
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            app/build/test-results/testDebugUnitTest
+            app/build/reports/tests/testDebugUnitTest
+          if-no-files-found: warn
+
+      - name: Upload lint report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-report
+          path: app/build/reports/lint-results-debug.html
+          if-no-files-found: warn
+
+      - name: Upload debug APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
