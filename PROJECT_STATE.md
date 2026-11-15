@@ -1,5 +1,26 @@
 # AIVORA state
 
+## Voice opt-in for hands-free controls (15 November 2026, branch `offline/hands-free-optin`, local work only)
+
+Goal: screen-free, completely voice-based assistant that handles all mobile
+tasks, complementing the Muse AI mobile app. Offline-first, API key optional.
+
+The five sensitive controls — hands-free, direct calling, direct SMS,
+Wi-Fi and mobile-data controls — can now be enabled by voice instead of
+only by a Settings switch; see `HANDS_FREE_OPTIN_NEXT.md` for the full
+report. Two exact phrases (request, then confirmation naming the same
+control, 60 s expiry), owner voice enrolled, and Android device-credential
+authentication before any enable takes effect. Disabling needs the same
+two phrases but no device credential. A bare "yes" never opts anything
+in. Public-wake sessions can never opt anything in. Defaults are still
+OFF. Every change, voice or switch, is logged to the existing audit table
+and shown in the Developer tab. No auto background execution, no
+incoming/end-call by voice, no verified payments — out of scope here.
+
+Not verified on this branch: no JVM tests, lint or Gradle build were run —
+this VM has no JDK and no Android SDK. No phone test was run. The phone
+test matrix is in `HANDS_FREE_OPTIN_NEXT.md` §6.
+
 ## First-run offline model download (15 November 2026, branch `offline/model-download`, local work only)
 
 Goal: screen-free, completely voice-based assistant that handles all mobile
