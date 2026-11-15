@@ -145,3 +145,44 @@ What the next run will test, in order:
    used; that answers the §3.1 watch item for real.
 3. Only then: the actual build — `testDebugUnitTest`,
    `assembleDebug`, `lintDebug`.
+
+## 5b. Second run failed — invalid workflow file, no job ran (15 Nov 2026)
+
+Run #3 (43735529710), on PR #6 (branch `offline/ci`, commit
+`7c36c86`): **failed before any job started**. The run page's only
+annotation was an invalid-workflow-file error:
+
+- `.github/workflows/android.yml` line 41, col 21: "Unrecognized
+  named-value: 'runner' … within expression: runner.temp" (same for
+  line 42). The job-level `env:` block set
+  `ANDROID_HOME: ${{ runner.temp }}/android-sdk` — but the `runner`
+  context is not available in job-level `env:`, so GitHub rejected
+  the whole workflow file. No job ran, no step ran, no artifacts.
+- The manual SDK install from §5 therefore **still has never run**.
+  Nothing about the app code is implicated; this was a workflow
+  syntax/context error, not a build failure.
+
+Fix (this commit, local only — not yet pushed):
+
+- Job-level `env:` block removed entirely. A new first step, "Set
+  Android SDK location", writes `ANDROID_HOME=$HOME/android-sdk`
+  and `ANDROID_SDK_ROOT=$HOME/android-sdk` to `$GITHUB_ENV`, so
+  every later step sees them as ordinary shell env vars. All later
+  steps already used `$ANDROID_HOME` as a shell variable, so they
+  are unchanged.
+- Expression audit of the whole file: after this fix the only
+  `${{ ... }}` expression left is `${{ github.ref }}` in
+  `concurrency:` (valid there — `github` is available in
+  concurrency groups). `if: always()` / `if: success()` use no
+  context expressions. No `${{ runner.* }}` or other context
+  expression was introduced anywhere.
+
+What the next run will test, in order — same as §5, still untested:
+
+1. Does the workflow file now parse (a job actually starts)?
+2. Does the manual cmdline-tools install work (curl + unzip +
+   `sdkmanager` on PATH)?
+3. Does sdkmanager find `platforms;android-37` — stable, canary,
+   or direct zip?
+4. Only then: the actual build — `testDebugUnitTest`,
+   `assembleDebug`, `lintDebug`.
