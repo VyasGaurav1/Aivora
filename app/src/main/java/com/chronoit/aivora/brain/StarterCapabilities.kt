@@ -10,7 +10,7 @@ object StarterCapabilities {
         if (Regex("^(?:i (?:need|want)|make|put|give me|arrange) (?:an? )?alarm\\b").containsMatchIn(request)) return "ALARM"
         return null
     }
-    const val description = "I can remember things you tell me, set timed reminders and speak them aloud, request alarms in your Clock app, and search the web for short spoken answers. You can ask me to repeat or simplify my last answer and save corrections locally. Try: remind me about my competition tomorrow at 7 AM. Calls, messages, payments and other phone controls aren't available in this release."
+    const val description = "I can remember things you tell me, set timed reminders and speak them aloud, request alarms in your Clock app, and answer short questions offline. I can prepare WhatsApp and SMS drafts and open the dialer for a call after your exact confirmation — I never press Send or place a call on my own, and direct calling or SMS need to be switched on in Settings first. Web search is optional and needs a Brave key. Try: remind me about my competition tomorrow at 7 AM."
     fun isQuestion(text: String): Boolean {
         val value = text.lowercase(java.util.Locale.ROOT).trim().trimEnd('.', '?', '!')
         return Regex("(?:(?:please )?(?:tell me )?(?:what can you do|what do you do|what are your capabilities|your capabilities|what are your features|your features|how can you help(?: me)?|what are you able to do|what tasks can you do|what can i ask you))", RegexOption.IGNORE_CASE).matches(value)

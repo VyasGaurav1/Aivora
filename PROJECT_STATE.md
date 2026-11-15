@@ -1,5 +1,46 @@
 # AIVORA state
 
+## Screen-free next step (13 November 2026, branch `offline/screen-free-next`, local work only)
+
+Goal: screen-free, completely voice-based assistant that handles all mobile tasks,
+complementing the Muse AI mobile app. Offline-first, API key optional.
+
+Audit (see `SCREEN_FREE_NEXT.md` for the full table): memory, routines, reminders,
+scheduled actions, short offline questions, volume/brightness and spoken choices are
+voice-driven offline with no key. Calls, WhatsApp/SMS, alarms, files, Wi-Fi/mobile
+data, YouTube and payments are voice-started but finish in another app or an Android
+panel — by design (draft/handoff, never claimed as completed) or by Android
+(permission / credential / SAF picker taps). Hands-free controls, direct calling/SMS
+and Wi-Fi/mobile-data controls all default off and are switched on only by a Settings
+switch today — the biggest screen-free onboarding gap; a voice opt-in flow is a design
+task, not a default flip.
+
+Changed on this branch (code + wording only):
+- `StarterCapabilities.kt`: the "What can you do?" answer no longer says calls,
+  messages and phone controls aren't available — that contradicted the dialer/draft
+  paths in code. It now states the accurate scope: drafts + dialer after exact
+  confirmation, never presses Send or places a call on its own, direct calling/SMS
+  need to be switched on in Settings first, web search optional with a Brave key.
+  Model routing (`knownRoute`/`label`) is unchanged — the model still cannot grant
+  send/call actions.
+- `StarterCapabilitiesTest.kt`: capability-description test updated to the new wording.
+- `StarterScreen.kt`: home idle hint now reads "Reminders, alarms, and offline
+  answers. Web search is optional."
+- `README.md`: first-run model download is planned, not implemented (see below).
+- `SCREEN_FREE_NEXT.md`: full voice-coverage audit, first-run model provisioning
+  plan, and a 15-row airplane-mode test matrix (not run here).
+
+First-run model provisioning is a plan only: the 429 MB Qwen model is still a Git
+LFS pointer in this clone and comes from `git lfs pull` + the full-offline build
+flag. The in-app one-time Wi-Fi download (pinned source, SHA-256 verify, reuse
+`LlamaLocalReasoningEngine.prepareModel()`) is designed in `SCREEN_FREE_NEXT.md`
+§2 and needs a JDK/SDK build + phone test.
+
+Not verified on this branch: no JVM tests, lint or Gradle build were run — this VM
+has no JDK and no Android SDK. No phone test was run. The description/test changes
+were checked by reading only; brace/paren balance passes, which is not a compile
+check.
+
 ## Offline-first defaults (13 November 2026, branch `offline/aivora-first`, local work only)
 
 Goal: screen-free, completely voice-based assistant that handles all mobile tasks, offline-first, API key optional. No key is required for core use; Gnani cloud speech and Brave web search are opt-in online only.
