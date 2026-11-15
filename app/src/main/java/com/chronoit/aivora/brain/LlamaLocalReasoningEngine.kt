@@ -22,9 +22,50 @@ class LlamaLocalReasoningEngine(private val context: Context) : LocalReasoningEn
     companion object {
         private val ownership = Mutex()
         private val ids = AtomicLong()
+        const val DIRECTORY = "aivora_reasoning"
         const val MODEL = "models/reasoning/qwen3-0.6b-q4_0.gguf"
         const val MODEL_BYTES = 428970080L
         const val SHA256 = "da2572f16c06133561ce56accaa822216f2391ef4d37fba427801cd6736417d4"
+    }
+
+    private fun modelDirectory(): File = File(context.filesDir, DIRECTORY)
+    private fun modelFile(): File = File(modelDirectory(), "qwen3-0.6b-q4_0.gguf")
+
+    /**
+     * Installed means the private model file exists with the exact pinned
+     * size. This is the cheap status check; the full SHA-256 verification
+     * still runs inside [prepareModel] before the model is first used.
+     */
+    fun modelInstalled(): Boolean = modelFile().let { it.isFile && it.length() == MODEL_BYTES }
+
+    /**
+     * True when any model source exists: the installed file, a staged
+     * external copy, a completed first-run download, or the bundled asset
+     * (full-offline build only). Used only to tell "not installed" apart
+     * from "installed but failed to load" — a missing source gets the honest
+     * download offer instead of a generic failure message.
+     */
+    fun hasModelSource(): Boolean {
+        if (modelInstalled()) return true
+        val staged = context.getExternalFilesDir(null)?.let { File(it, MODEL) }
+        if (staged?.isFile == true && staged.length() == MODEL_BYTES) return true
+        val downloaded = File(modelDirectory(), ModelDownloadPolicy.DOWNLOAD_FILENAME)
+        if (downloaded.isFile && downloaded.length() == MODEL_BYTES) return true
+        return runCatching {
+            context.assets.list("models/reasoning")?.contains(MODEL.substringAfterLast('/')) == true
+        }.getOrDefault(false)
+    }
+
+    /** Deletes the installed model and any partial download. Returns bytes freed. */
+    fun removeModel(): Long {
+        val files = listOf(
+            modelFile(),
+            File(modelDirectory(), ModelDownloadPolicy.DOWNLOAD_FILENAME),
+            File(modelDirectory(), "qwen3-0.6b-q4_0.part"),
+        )
+        var freed = 0L
+        files.forEach { if (it.isFile) { freed += it.length(); it.delete() } }
+        return freed
     }
     override suspend fun answer(question: String): ReasoningResult {
         if (!ReasoningQuestions.eligible(question)) return ReasoningResult.Unavailable("Use an explicit command or a short question.")
@@ -45,6 +86,7 @@ class LlamaLocalReasoningEngine(private val context: Context) : LocalReasoningEn
     private suspend fun generate(prompt: String): ReasoningResult = ownership.withLock {
         val memory = ActivityManager.MemoryInfo().also { context.getSystemService(ActivityManager::class.java).getMemoryInfo(it) }
         if (memory.lowMemory || memory.availMem < 768L * 1024 * 1024) return@withLock ReasoningResult.Unavailable("Not enough free memory for a local answer right now. Phone commands remain available.")
+        if (!hasModelSource()) return@withLock ReasoningResult.Unavailable(ModelDownloadPolicy.NOT_INSTALLED_MESSAGE)
         try {
             val model = withContext(Dispatchers.IO) { prepareModel() }
             val id = ids.incrementAndGet()
@@ -76,8 +118,8 @@ class LlamaLocalReasoningEngine(private val context: Context) : LocalReasoningEn
         }
     }
     internal suspend fun prepareModel(): File {
-        val directory = File(context.filesDir, "aivora_reasoning").apply { check(isDirectory || mkdirs()) }
-        val target = File(directory, "qwen3-0.6b-q4_0.gguf")
+        val directory = modelDirectory().apply { check(isDirectory || mkdirs()) }
+        val target = modelFile()
         suspend fun verified(file: File): Boolean {
             if (!file.isFile || file.length() != MODEL_BYTES) return false
             val digest = MessageDigest.getInstance("SHA-256")
@@ -88,6 +130,20 @@ class LlamaLocalReasoningEngine(private val context: Context) : LocalReasoningEn
             return digest.digest().joinToString("") { "%02x".format(it.toInt() and 255) } == SHA256
         }
         if (verified(target)) return target
+        // A completed first-run download lands here. It is verified with the
+        // same check as every other source, then atomically moved into
+        // place — no copy, no second verify path. A corrupt download is our
+        // own file, so it is deleted and the asset path below is tried
+        // instead of failing the question; the external staged copy keeps
+        // its existing checksum-mismatch failure.
+        val downloaded = File(directory, ModelDownloadPolicy.DOWNLOAD_FILENAME)
+        if (downloaded.isFile) {
+            if (verified(downloaded)) {
+                java.nio.file.Files.move(downloaded.toPath(), target.toPath(), java.nio.file.StandardCopyOption.ATOMIC_MOVE, java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+                return target
+            }
+            downloaded.delete()
+        }
         val staged = context.getExternalFilesDir(null)?.let { File(it, MODEL) }
         if (staged != null && staged.exists()) check(verified(staged)) { "Local model checksum mismatch" }
         check(directory.usableSpace > MODEL_BYTES + 64L * 1024 * 1024)

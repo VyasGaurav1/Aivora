@@ -36,6 +36,8 @@ import com.chronoit.aivora.data.AssistantSettings
 import com.chronoit.aivora.voice.EnrollmentKind
 import com.chronoit.aivora.voice.VoiceLaunchTickets
 import com.chronoit.aivora.brain.FileOperation
+import com.chronoit.aivora.brain.ModelDownloadPolicy
+import com.chronoit.aivora.brain.ModelDownloadState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -439,6 +441,15 @@ open class MainActivity : ComponentActivity() {
                 Row { Switch(settings.localReasoning, model::localReasoning); Text("Offline question answers") }
                 Text("The local model can make factual mistakes. Generated answers are labeled unverified.")
                 Text("Short questions can use a bundled local model when memory permits. Its answers may be inaccurate and do not perform phone actions. Commands and saved personal facts use the existing deterministic paths.")
+                val modelDownload by model.modelDownloadState.collectAsStateWithLifecycle()
+                Text("Offline model", style = MaterialTheme.typography.titleMedium)
+                Text(ModelDownloadPolicy.statusLabel(modelDownload))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { model.downloadOfflineModel() }, enabled = modelDownload is ModelDownloadState.NotInstalled || modelDownload is ModelDownloadState.Failed) { Text("Download offline model (429 MB, Wi-Fi only)") }
+                    Button(onClick = { model.cancelModelDownload() }, enabled = modelDownload is ModelDownloadState.Downloading || modelDownload is ModelDownloadState.Verifying) { Text("Cancel download") }
+                    TextButton(onClick = { model.removeOfflineModel() }, enabled = modelDownload is ModelDownloadState.Installed) { Text("Remove offline model") }
+                }
+                Text("One-time download from the pinned model source, verified against its size and checksum before first use. It never starts on its own — say \"yes, download the offline model\" or use the button above. A failed download keeps its partial file so it can resume; cancelling deletes it.")
                 Text("Direct cellular calling", style = MaterialTheme.typography.titleMedium)
                 Row { Switch(settings.directCalling, model::directCalling); Text("Place confirmed phone calls") }
                 Row { Switch(settings.directSms, model::directSms); Text("Send confirmed short SMS") }
