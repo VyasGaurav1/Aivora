@@ -570,8 +570,12 @@ class AssistantViewModel(application: Application) : AndroidViewModel(applicatio
                     val correction = app.conversationMemory.correctedAnswer(text)
                     if (correction != null) { reply("You corrected this earlier: $correction", localSpeech = true); return@safely }
                 }
-                val search = webQuestion(text, allowOrdinary = parsedAtEntry is ParsedCommand.Clarify &&
-                    (webSearchConfigured() || !settings.value.localReasoning || !app.assets.list("models/reasoning").orEmpty().any { it.endsWith(".gguf") }))
+                // Offline-first routing: ordinary questions go to live web search only
+                // when the user opted in with a Brave key. Otherwise they go to the
+                // on-device local reasoning path below (or an honest unavailable
+                // reply when the local model is not installed). No key is required
+                // for core use, and no question is sent to the web by default.
+                val search = webQuestion(text, allowOrdinary = parsedAtEntry is ParsedCommand.Clarify && webSearchConfigured())
                 if (search != null) {
                     answerWebQuestion(search.first, search.second)
                     return@safely
@@ -617,7 +621,7 @@ class AssistantViewModel(application: Application) : AndroidViewModel(applicatio
         val answer = when {
             question.isNullOrBlank() || question.length > 1600 || question.any(Char::isISOControl) ->
                 "Ask a short web question or say show suggestions for a topic."
-            !webSearchConfigured() -> "Add a Brave Search API key in AIVORA Settings to use online search."
+            !webSearchConfigured() -> "Online search is optional. Add a Brave Search API key in AIVORA Settings to use it — short questions work offline without a key."
             !networkMonitor.snapshot().validated -> "Online search needs internet. Connect to the internet and ask again."
             else -> {
                 mutable.update { it.copy(state = AssistantState.SEARCHING) }

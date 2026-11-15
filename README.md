@@ -13,7 +13,7 @@ AIVORA is a voice assistant that lives on your device. Ask it to remember things
 | **Assistant name** | Configurable — defaults to `Aivora` |
 | **Platform** | Android 11 (API 30) and later |
 | **Build** | JDK 21 · Android SDK 37 |
-| **Speech (optional)** | Gnani Prisma v3.0 STT · Timbre v3.0 TTS |
+| **Speech** | On-device by default; Gnani Prisma v3.0 STT · Timbre v3.0 TTS optional (API key, online only) |
 
 ## Contents
 
@@ -167,6 +167,13 @@ Set `ANDROID_HOME` to the SDK directory, then run:
 ```powershell
 .\gradlew.bat testDebugUnitTest assembleDebug assembleRelease lintDebug
 ```
+
+**Full offline build (local question answering):** the starter build omits the
+local reasoning model. Fetch it first with `git lfs pull` -- it is a Git LFS
+file (`qwen3-0.6b-q4_0.gguf`, 428970080 bytes, SHA-256 verified at build
+time) -- then build with `-PaivoraIncludeLocalReasoning=true`. Without the
+model, short questions fall back to an honest unavailable reply; no key is
+required for core use, and live web answers remain an opt-in Brave key.
 
 The debug APK is produced at:
 

@@ -94,6 +94,11 @@ class VoiceSessionController(
     private val interruption = SpeechInterruption(context)
     private val interruptedSpeech = AtomicBoolean(false)
     fun consumeSpeechInterruption() = interruptedSpeech.getAndSet(false)
+    // Offline-first speech: Gnani cloud speech is used only when the owner
+    // opted in by saving a Gnani API key in Settings. With no key saved,
+    // the on-device engines below (Android recognizer / Indian English TTS,
+    // and the bundled Sherpa models for verified commands) are the default,
+    // so core voice use needs no key and no network.
     private suspend fun speakText(text: String, options: SpeechOptions, localOnly: Boolean = false) {
         VoiceRuntime.speak {
             interruption.play(stop = { tts.stop(); gnani.stop() }, onWake = {

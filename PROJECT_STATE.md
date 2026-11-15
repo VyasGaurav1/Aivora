@@ -1,5 +1,20 @@
 # AIVORA state
 
+## Offline-first defaults (13 November 2026, branch `offline/aivora-first`, local work only)
+
+Goal: screen-free, completely voice-based assistant that handles all mobile tasks, offline-first, API key optional. No key is required for core use; Gnani cloud speech and Brave web search are opt-in online only.
+
+Changed on this branch (6 files, code + wording only — no Gnani/Brave code removed):
+- `AssistantViewModel.kt`: ordinary questions now go to live web search only when a Brave key is saved (`webSearchConfigured()`). Previously they were also routed to web whenever local reasoning was off or the local model was absent, which demanded a Brave key from users with no key. They now fall through to the on-device local reasoning path, which answers when the model is installed and otherwise replies honestly that it could not produce a local answer. Explicit web searches still need a Brave key, and the message now says online search is optional.
+- `AssistantSettings.kt`: `spokenReplies` now defaults to `true` on fresh installs (was `false`), so replies are spoken by default — required for a screen-free assistant. Existing installs keep their stored value; the switch in Settings still turns it off. Instrumentation tests set this explicitly, so they do not rely on the default.
+- `StarterScreen.kt` / `MainActivity.kt`: Gnani is now labelled "online, optional" (was "primary"); the no-key state reads "on-device (offline)". Web answers are labelled optional, online only, and Settings now says short questions work offline.
+- `VoiceSessionController.kt`: comment only — documents that Gnani is used only when a key is saved and on-device engines are the default otherwise.
+- `gradle.properties`: comment only — documents the full offline build (`git lfs pull`, then `-PaivoraIncludeLocalReasoning=true`). The flag was NOT turned on by default here because the local model is a Git LFS file and this clone holds only its 134-byte pointer; turning it on would fail build-time hash verification.
+
+Not verified on this branch: no JVM tests, lint or Gradle build were run — this VM has no JDK and no Android SDK. No phone test was run. The routing and default changes need `./gradlew.bat testDebugUnitTest assembleDebug lintDebug` plus the POCO airplane-mode checks (wake, memory, reminder, alarm, routine, file, local Q&A) before any claim that offline-first works on device.
+
+Finding (verified by reading the manifest, not a code change): `app/src/main/AndroidManifest.xml` declares `android.permission.INTERNET`. The older note in this file's historical summary ("No runtime internet permission") is outdated. Core offline flows do not use the network unless the user opts in to Gnani/Brave or an approved online task; the permission exists for those opt-in paths.
+
 ## Active checkpoint (7 November 2026)
 
 Final signed text cleanup installed; the current-reply/memory ViewModel smoke check passed again (0.060 s). AIVORA assistant binding and foreground wake service were restored; reboot fixture file is absent after cleanup.
