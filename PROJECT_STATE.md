@@ -1,5 +1,28 @@
 # AIVORA state
 
+## GitHub Actions CI (15 November 2026, branch `offline/ci`, local work only)
+
+Goal: screen-free, completely voice-based assistant that handles all mobile
+tasks, complementing the Muse AI mobile app. Offline-first, API key optional.
+
+This VM cannot run Gradle at all (no JVM here can write to a TCP socket,
+proven in `BUILD_TEST_NEXT.md`), so CI is the build machine.
+`.github/workflows/android.yml` runs on push/PRs to `main`: Temurin JDK 21,
+Android SDK 37, `./gradlew testDebugUnitTest assembleDebug lintDebug`,
+test/lint reports uploaded on failure, debug APK on success. Starter build
+only — checkout sets `lfs: false`, so the 429 MB Qwen model is never
+fetched and must never be needed; the full-offline build is a separate
+manual job, not enabled by default. One build-config fix was needed:
+`gradlew` was not executable in git (mode `100644`); fixed to `100755`.
+No `build.gradle.kts` / `settings.gradle.kts` / `gradle.properties`
+change. See `CI_NEXT.md` for what the first run will prove and what to
+watch for (notably: SDK 37 was preview-only, so the `sdkmanager` step
+may need the canary channel or a direct platform install).
+
+Not verified on this branch: the workflow has not run yet — no CI run
+exists, nothing is claimed green. No JVM tests, lint or Gradle build were
+run here. No phone test was run.
+
 ## Voice opt-in for hands-free controls (15 November 2026, branch `offline/hands-free-optin`, local work only)
 
 Goal: screen-free, completely voice-based assistant that handles all mobile

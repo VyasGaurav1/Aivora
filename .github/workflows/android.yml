@@ -1,0 +1,158 @@
+# AIVORA — Android CI
+#
+# The only path to a green build: this VM cannot run Gradle at all
+# (no JVM here can write to a TCP socket, so the Gradle daemon protocol
+# is dead — see BUILD_TEST_NEXT.md). GitHub Actions is the build machine.
+#
+# Runs the starter build only: testDebugUnitTest, assembleDebug, lintDebug.
+# The 429 MB Qwen reasoning model is NOT fetched here and must NOT be
+# needed: the starter build omits it (see gradle.properties), and the
+# checkout below deliberately does not fetch Git LFS files.
+#
+# SDK setup is MANUAL (plain curl + sdkmanager). The first run
+# (43734779708, 2026-11-15) failed in 18 s because
+# android-actions/setup-android@v3 itself ran `sdkmanager tools` and the
+# obsolete SDK package named 'tools' no longer exists in the repository
+# (exit 1). That action is gone; nothing here asks sdkmanager for a
+# package that does not exist. See CI_NEXT.md §5.
+
+name: Android CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Test, build and lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          # Do NOT fetch LFS files. The 429 MB Qwen model is a Git LFS
+          # pointer in this repo; the starter build must not need it.
+          # (A full-offline build is a separate manual job — see CI_NEXT.md.)
+          lfs: false
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Set Android SDK location
+        # ANDROID_HOME/ANDROID_SDK_ROOT must be set in a step via
+        # $GITHUB_ENV. A job-level `env:` block cannot use the
+        # `runner.temp` context — GitHub rejected the whole workflow
+        # file as invalid (run 43735529710, 2026-11-15): the `runner`
+        # context is not available in job-level env. (The literal
+        # expression is deliberately not written here, so no parser
+        # can mistake this comment for one.) $HOME on the runner is
+        # /home/runner; the SDK lives in $HOME/android-sdk.
+        # Every later step uses $ANDROID_HOME as a shell variable.
+        run: |
+          echo "ANDROID_HOME=$HOME/android-sdk" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> "$GITHUB_ENV"
+
+      - name: Install Android command-line tools
+        # cmdline-tools 16.0 (build 12266719) — the same zip the failed
+        # first run's setup action downloaded successfully, so this URL
+        # is known to exist. The zip's top directory is `cmdline-tools/`;
+        # the SDK layout requires it at `cmdline-tools/latest/`.
+        run: |
+          mkdir -p "$ANDROID_HOME/cmdline-tools"
+          cd "$ANDROID_HOME/cmdline-tools"
+          curl -fsSL -o cmdline-tools.zip "https://dl.google.com/android/repository/commandlinetools-linux-12266719_latest.zip"
+          unzip -q cmdline-tools.zip
+          mv cmdline-tools latest
+          rm cmdline-tools.zip
+          test -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+
+      - name: Install Android SDK packages
+        # Matches the local toolchain (BUILD_TEST_NEXT.md):
+        # compileSdk/targetSdk 37, build-tools 37.0.0,
+        # NDK 28.2.13676358 and CMake 3.22.1 (native reasoning_jni).
+        #
+        # platforms;android-37 needs special handling: SDK 37 was
+        # preview-only when this was written (not in the stable
+        # repository manifests, which top out at android-36). Try the
+        # stable channel first, then the canary channel
+        # (sdkmanager --channel=3), then — last resort — the platform
+        # zip downloaded directly, exactly as the local toolchain was
+        # built (BUILD_TEST_NEXT.md §1; SHA-1 verified below). Do NOT
+        # drop compileSdk to 36 to make CI pass.
+        run: |
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
+          sdkmanager "platform-tools" "build-tools;37.0.0" "ndk;28.2.13676358" "cmake;3.22.1"
+          install_platform37_direct() {
+            echo "::warning::sdkmanager cannot find platforms;android-37 on any channel; installing the platform zip directly"
+            mkdir -p "$ANDROID_HOME/platforms"
+            cd "$ANDROID_HOME/platforms"
+            curl -fsSL -o platform-37.zip "https://dl.google.com/android/repository/platform-37.0_r01.zip"
+            echo "1a9a8c2e2a5ab8cd95f2eded7d9da037e62fbc6f  platform-37.zip" | sha1sum -c -
+            unzip -q -o platform-37.zip
+            rm platform-37.zip
+            test -f "$ANDROID_HOME/platforms/android-37.0/android.jar"
+          }
+          if ! sdkmanager "platforms;android-37"; then
+            echo "::warning::platforms;android-37 not found in the stable channel, retrying the canary channel"
+            sdkmanager --channel=3 "platforms;android-37" || install_platform37_direct
+          fi
+
+      - name: Accept SDK licenses
+        # sdkmanager is on PATH via the $GITHUB_PATH entry written by
+        # the "Install Android command-line tools" step.
+        run: yes | sdkmanager --licenses
+
+      - name: Make gradlew executable
+        # Defensive: the git mode fix (100644 -> 100755) may not survive
+        # every push path, so ensure it here rather than failing the
+        # whole run with "permission denied".
+        run: chmod +x gradlew
+
+      - name: Run unit tests, debug build and lint
+        # One invocation, in order: a test failure stops the build and
+        # lint stages, so the first red run shows the earliest failure.
+        # --no-daemon: no daemon is kept alive on the runner.
+        run: ./gradlew testDebugUnitTest assembleDebug lintDebug --no-daemon --stacktrace --console=plain
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            app/build/test-results/testDebugUnitTest
+            app/build/reports/tests/testDebugUnitTest
+          if-no-files-found: warn
+
+      - name: Upload lint report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-report
+          path: app/build/reports/lint-results-debug.html
+          if-no-files-found: warn
+
+      - name: Upload debug APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
