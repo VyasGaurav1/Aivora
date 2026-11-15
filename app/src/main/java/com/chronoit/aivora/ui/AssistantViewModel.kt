@@ -565,6 +565,24 @@ class AssistantViewModel(application: Application) : AndroidViewModel(applicatio
                 scheduleConditions = com.chronoit.aivora.scheduler.TaskConditions()
                 scheduleRepeatMillis = 0L
                 connectivity.cancel(); onlineRegistry = null; mutable.update { it.copy(networkPromptToken = null) }
+                // Offline-model download commands: exact phrases only, so a bare
+                // "yes" or "download it" can never start a 429 MB download.
+                // The download itself is Wi-Fi-only, one-time, and verified
+                // against the pinned model before first use.
+                when (ModelDownloadPolicy.match(text)) {
+                    ModelDownloadPolicy.Command.DOWNLOAD -> { reply(app.modelDownload.start()); return@safely }
+                    ModelDownloadPolicy.Command.REMOVE -> {
+                        val freed = app.modelDownload.remove()
+                        reply(when {
+                            freed < 0 -> "A download is running. Cancel it first, then remove the offline model."
+                            freed > 0 -> "Removed the offline model, freeing about ${freed / 1024 / 1024} MB."
+                            else -> "The offline model isn't installed."
+                        })
+                        return@safely
+                    }
+                    ModelDownloadPolicy.Command.CANCEL -> { app.modelDownload.cancel(); reply("Cancelling the offline model download."); return@safely }
+                    null -> {}
+                }
                 if (StarterCapabilities.isQuestion(text)) { reply(StarterCapabilities.description); return@safely }
                 if (!ConversationRouting.explicitSearch(text) && (parsedAtEntry is ParsedCommand.Clarify || parsedAtEntry is ParsedCommand.PersonalFactQuestion)) {
                     val correction = app.conversationMemory.correctedAnswer(text)
@@ -1258,6 +1276,19 @@ class AssistantViewModel(application: Application) : AndroidViewModel(applicatio
     }
     fun directSms(value: Boolean) { viewModelScope.launch { app.settings.setDirectSms(value) } }
     fun localReasoning(value: Boolean) { viewModelScope.launch { app.settings.setLocalReasoning(value) } }
+    val modelDownloadState = app.modelDownload.state
+    fun downloadOfflineModel() { viewModelScope.launch(Dispatchers.IO) { reply(app.modelDownload.start()) } }
+    fun cancelModelDownload() { app.modelDownload.cancel(); appendReply("Cancelling the offline model download.") }
+    fun removeOfflineModel() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val freed = app.modelDownload.remove()
+            reply(when {
+                freed < 0 -> "A download is running. Cancel it first, then remove the offline model."
+                freed > 0 -> "Removed the offline model, freeing about ${freed / 1024 / 1024} MB."
+                else -> "The offline model isn't installed."
+            })
+        }
+    }
     private suspend fun safely(block: suspend () -> Unit) {
         try { block() }
         catch (cancelled: CancellationException) { throw cancelled }

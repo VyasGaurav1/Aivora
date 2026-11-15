@@ -26,7 +26,12 @@ class AivoraApplication : Application() {
     val smsJournal by lazy { SmsJournal(smsDatabase, FieldCipher(KeystoreKeys::dataKey)) }
     val memory by lazy { AivoraMemory(database, settings, FieldCipher(KeystoreKeys::dataKey)) }
     val conversationMemory by lazy { com.chronoit.aivora.memory.ConversationMemory(memory, settings) }
-    val reasoning: com.chronoit.aivora.brain.LocalReasoningEngine by lazy { com.chronoit.aivora.brain.LlamaLocalReasoningEngine(this) }
+    val reasoning: com.chronoit.aivora.brain.LlamaLocalReasoningEngine by lazy { com.chronoit.aivora.brain.LlamaLocalReasoningEngine(this) }
+    val modelDownload by lazy {
+        com.chronoit.aivora.brain.ModelDownloader(this, reasoning) {
+            com.chronoit.aivora.connectivity.AndroidNetworkMonitor(this).snapshot()
+        }
+    }
     val contacts by lazy { ContactsDirectory(this) }
     val documents by lazy { LocalDocuments(this, database, settings, FieldCipher(KeystoreKeys::dataKey), SecureSearchIndex(KeystoreKeys::searchKey)) }
     val capabilities by lazy { DeviceCapabilityManager(this) }

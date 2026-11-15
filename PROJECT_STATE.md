@@ -1,5 +1,28 @@
 # AIVORA state
 
+## First-run offline model download (15 November 2026, branch `offline/model-download`, local work only)
+
+Goal: screen-free, completely voice-based assistant that handles all mobile
+tasks, complementing the Muse AI mobile app. Offline-first, API key optional.
+
+The 429 MB Qwen model can now be downloaded in-app, once, over Wi-Fi only —
+see `MODEL_DOWNLOAD_NEXT.md` for the full report. Verified against the
+Hugging Face page on 2026-11-15: the real upstream filename is
+`Qwen3-0.6B-Q4_0.gguf` (capital Q; the lowercase local name 404s) and the
+page's SHA-256 matches the pinned SHA. `brain/ModelDownload.kt` holds the
+pinned URL, the Wi-Fi/storage gates and the exact-phrase voice matching;
+`ModelDownloader` streams resumably to a `.download` file and hands off to
+the existing `prepareModel()` for SHA-256 verify + atomic move — no second
+verify path. A first offline question with no model now answers honestly
+with the download offer instead of a generic failure. Settings shows model
+status with Download / Cancel / Remove. No defaults flipped: hands-free,
+direct calling/SMS and Wi-Fi/mobile-data controls still default off.
+
+Not verified on this branch: no JVM tests, lint or Gradle build were run —
+this VM has no JDK and no Android SDK. No 429 MB file has been downloaded
+by this code on any device; the phone test matrix is in
+`MODEL_DOWNLOAD_NEXT.md` §6.
+
 ## Screen-free next step (13 November 2026, branch `offline/screen-free-next`, local work only)
 
 Goal: screen-free, completely voice-based assistant that handles all mobile tasks,
