@@ -9,6 +9,8 @@ import com.chronoit.aivora.AivoraApplication
 import com.chronoit.aivora.actions.*
 import com.chronoit.aivora.brain.*
 import com.chronoit.aivora.data.AssistantSettings
+import com.chronoit.aivora.data.AuditEvent
+import java.util.UUID
 import com.chronoit.aivora.memory.Memory
 import com.chronoit.aivora.memory.MemoryType
 import com.chronoit.aivora.memory.MemorySource
@@ -41,6 +43,7 @@ data class AssistantUiState(
     val conversation: List<ConversationLine> = listOf(ConversationLine(false, "Type a command or use Voice input to begin.")),
     val confirmation: Confirmation? = null,
     val authentication: Confirmation? = null,
+    val optInAuthentication: HandsFreeControl? = null,
     val memories: List<Memory> = emptyList(),
     val capabilities: List<Capability> = emptyList(),
     val discoveredApps: List<LaunchableApp> = emptyList(),
@@ -94,6 +97,8 @@ class AssistantViewModel(application: Application) : AndroidViewModel(applicatio
     private var choicePage = 0
     private var choicePageToken: String? = null
     private val authenticationLaunch = AuthenticationLaunchGate()
+    private val optInPolicy = HandsFreeOptInPolicy()
+    private var pendingOptIn: HandsFreeOptInPolicy.Pending? = null
     private var activeCommandSource = CommandSource.FOREGROUND_OWNER
     private var scheduleDueAt: Long? = null
     private var scheduleConditions = com.chronoit.aivora.scheduler.TaskConditions()
@@ -583,6 +588,13 @@ class AssistantViewModel(application: Application) : AndroidViewModel(applicatio
                     ModelDownloadPolicy.Command.CANCEL -> { app.modelDownload.cancel(); reply("Cancelling the offline model download."); return@safely }
                     null -> {}
                 }
+                // Voice opt-ins: exact phrases only, two steps, owner
+                // enrolled, device credential on enable. See
+                // brain/HandsFreeOptIn.kt. A public-wake session never
+                // reaches here: acceptPublicWakeCommand routes only
+                // memory/reminder/alarm commands to submitCommand, and
+                // anything else is refused or sent to the model classifier.
+                optInPolicy.match(text)?.let { command -> handleOptInCommand(command, source); return@safely }
                 if (StarterCapabilities.isQuestion(text)) { reply(StarterCapabilities.description); return@safely }
                 if (!ConversationRouting.explicitSearch(text) && (parsedAtEntry is ParsedCommand.Clarify || parsedAtEntry is ParsedCommand.PersonalFactQuestion)) {
                     val correction = app.conversationMemory.correctedAnswer(text)
@@ -994,6 +1006,7 @@ class AssistantViewModel(application: Application) : AndroidViewModel(applicatio
     fun cancel() {
         voiceConversationJob?.cancel()
         spokenQrPayment = null
+        pendingOptIn = null
         qrScanRequests.tryReceive()
         val wasSmsSend = activeSmsSend
         dueTaskChoices.clear()
@@ -1007,7 +1020,7 @@ class AssistantViewModel(application: Application) : AndroidViewModel(applicatio
         voice.stopAll()
         val previous = task
         previous?.cancel()
-        mutable.update { it.copy(confirmation = null, authentication = null, contactChoices = emptyList(), documentChoices = emptyList(), state = AssistantState.IDLE) }
+        mutable.update { it.copy(confirmation = null, authentication = null, optInAuthentication = null, contactChoices = emptyList(), documentChoices = emptyList(), state = AssistantState.IDLE) }
         task = viewModelScope.launch {
             previous?.join(); connectivity.cancel(); onlineRegistry = null
             mutable.update { it.copy(networkPromptToken = null) }
@@ -1020,11 +1033,11 @@ class AssistantViewModel(application: Application) : AndroidViewModel(applicatio
     fun forget(id: String) { viewModelScope.launch(Dispatchers.IO) { safely { app.memory.forget(id); refreshMemory() } } }
     fun finishOnboarding() { viewModelScope.launch(Dispatchers.IO) { safely { app.settings.finishOnboarding() } } }
     fun spokenReplies(value: Boolean) { if (!value) voice.stopSpeaking(); viewModelScope.launch { app.settings.setSpokenReplies(value) } }
-    fun handsFreeControls(value: Boolean) { if (!value) voice.stopAll(); viewModelScope.launch { app.settings.setHandsFreeControls(value) } }
+    fun handsFreeControls(value: Boolean) { if (!value) voice.stopAll(); viewModelScope.launch { app.settings.setHandsFreeControls(value); logOptInChange(HandsFreeControl.HANDS_FREE, value, "SETTINGS") } }
     fun speechOptions(speed: Float, voiceId: Int) { viewModelScope.launch { app.settings.setSpeechOptions(speed, voiceId) } }
     fun internetBehavior(value: com.chronoit.aivora.data.InternetBehavior) { viewModelScope.launch { app.settings.setInternetBehavior(value) } }
-    fun wifiControls(value: Boolean) { viewModelScope.launch { app.settings.setWifiControls(value) } }
-    fun mobileDataControls(value: Boolean) { viewModelScope.launch { app.settings.setMobileDataControls(value) } }
+    fun wifiControls(value: Boolean) { viewModelScope.launch { app.settings.setWifiControls(value); logOptInChange(HandsFreeControl.WIFI, value, "SETTINGS") } }
+    fun mobileDataControls(value: Boolean) { viewModelScope.launch { app.settings.setMobileDataControls(value); logOptInChange(HandsFreeControl.MOBILE_DATA, value, "SETTINGS") } }
     private suspend fun beginOnlinePlan(plan: ActionPlan, source: CommandSource) {
         val missing = plan.actions.filterIsInstance<Action.DraftAppMessage>().firstOrNull { app.packageManager.getLaunchIntentForPackage(it.app.packageName) == null }
         if (missing != null) { reply("${missing.app.displayName} is not installed. No message was drafted or sent.", AssistantState.ASKING); return }
@@ -1261,7 +1274,7 @@ class AssistantViewModel(application: Application) : AndroidViewModel(applicatio
         return bound
     }
 
-    fun directCalling(value: Boolean) { viewModelScope.launch { app.settings.setDirectCalling(value) } }
+    fun directCalling(value: Boolean) { viewModelScope.launch { app.settings.setDirectCalling(value); logOptInChange(HandsFreeControl.DIRECT_CALLING, value, "SETTINGS") } }
     private fun prepareDirectSms(plan: ActionPlan): ActionPlan {
         if ((plan.actions.singleOrNull() as? Action.DraftMessage)?.draftOnly == true) return plan
         if (!settings.value.directSms || scheduleDueAt != null || plan.actions.none { it is Action.DraftMessage }) return plan
@@ -1274,7 +1287,7 @@ class AssistantViewModel(application: Application) : AndroidViewModel(applicatio
         if (bound === plan) appendReply("Direct SMS is unavailable for this request. Review the draft-only action; sending remains in your messaging app.")
         return bound
     }
-    fun directSms(value: Boolean) { viewModelScope.launch { app.settings.setDirectSms(value) } }
+    fun directSms(value: Boolean) { viewModelScope.launch { app.settings.setDirectSms(value); logOptInChange(HandsFreeControl.DIRECT_SMS, value, "SETTINGS") } }
     fun localReasoning(value: Boolean) { viewModelScope.launch { app.settings.setLocalReasoning(value) } }
     val modelDownloadState = app.modelDownload.state
     fun downloadOfflineModel() { viewModelScope.launch(Dispatchers.IO) { reply(app.modelDownload.start()) } }
@@ -1289,6 +1302,124 @@ class AssistantViewModel(application: Application) : AndroidViewModel(applicatio
             })
         }
     }
+    /**
+     * Voice opt-in for the five sensitive controls. Two exact phrases
+     * (request, then confirmation naming the same control) inside 60
+     * seconds, owner voice enrolled, and — for enabling — Android device
+     * authentication before the setting flips. Disabling needs the two
+     * phrases and enrollment but no device auth: turning a capability off
+     * is not a grant. Every change, voice or Settings switch, is logged
+     * to the audit table (Developer tab) with its source.
+     */
+    private suspend fun handleOptInCommand(command: HandsFreeOptInCommand, source: CommandSource) {
+        when (command) {
+            is HandsFreeOptInCommand.Status -> {
+                val current = settings.value
+                reply(HandsFreeOptInPolicy.statusText(current.handsFreeControls, current.directCalling, current.directSms, current.wifiControls, current.mobileDataControls))
+            }
+            is HandsFreeOptInCommand.Request -> {
+                val current = settings.value
+                val already = when (command.control) {
+                    HandsFreeControl.HANDS_FREE -> current.handsFreeControls
+                    HandsFreeControl.DIRECT_CALLING -> current.directCalling
+                    HandsFreeControl.DIRECT_SMS -> current.directSms
+                    HandsFreeControl.WIFI -> current.wifiControls
+                    HandsFreeControl.MOBILE_DATA -> current.mobileDataControls
+                } == command.enable
+                if (already) {
+                    reply("${command.control.label.replaceFirstChar { it.uppercaseChar() }} ${if (command.control.plural) "are" else "is"} already ${if (command.enable) "on" else "off"}.")
+                    return
+                }
+                if (!voice.state.value.ownerEnrolled) {
+                    reply("Enroll the owner voice in the Voice tab first, then say 'enable ${command.control.label}' again.")
+                    return
+                }
+                val missingPermission = when (command.control) {
+                    HandsFreeControl.DIRECT_CALLING -> android.Manifest.permission.CALL_PHONE.takeUnless {
+                        app.checkSelfPermission(it) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                    }
+                    HandsFreeControl.DIRECT_SMS -> listOf(android.Manifest.permission.SEND_SMS, android.Manifest.permission.READ_PHONE_STATE)
+                        .firstOrNull { app.checkSelfPermission(it) != android.content.pm.PackageManager.PERMISSION_GRANTED }
+                    else -> null
+                }
+                if (missingPermission != null) {
+                    reply(
+                        if (command.control == HandsFreeControl.DIRECT_CALLING)
+                            "Allow phone-call placement in Capabilities first, then say 'enable direct calling' again."
+                        else "Allow SMS sending and SIM verification in Capabilities first, then say 'enable direct SMS' again.",
+                    )
+                    return
+                }
+                pendingOptIn = HandsFreeOptInPolicy.Pending(command.control, command.enable, System.nanoTime() / 1_000_000, source.name)
+                reply(HandsFreeOptInPolicy.requestPrompt(command.control, command.enable), AssistantState.ASKING)
+            }
+            is HandsFreeOptInCommand.Confirm -> {
+                val pending = pendingOptIn
+                if (pending == null || pending.control != command.control || pending.enable != command.enable || !optInPolicy.isCurrent(pending)) {
+                    reply("No ${if (command.enable) "enable" else "disable"} request is waiting for ${command.control.label}. Say '${if (command.enable) "enable" else "disable"} ${command.control.label}' first.")
+                    return
+                }
+                if (command.enable) {
+                    // Device authentication happens in MainActivity via the
+                    // optInAuthentication state below; the setting flips
+                    // only in completeOptInAuthentication().
+                    mutable.update { it.copy(optInAuthentication = command.control) }
+                    reply(HandsFreeOptInPolicy.confirmPrompt(command.control, true), AssistantState.ASKING)
+                } else {
+                    pendingOptIn = null
+                    applyOptIn(command.control, false, source.name)
+                    reply("${command.control.label.replaceFirstChar { it.uppercaseChar() }} ${if (command.control.plural) "are" else "is"} now off.")
+                }
+            }
+        }
+    }
+
+    /** Called by MainActivity after BiometricPrompt device-credential success. */
+    fun completeOptInAuthentication() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val pending = pendingOptIn
+            if (pending == null || !pending.enable || !optInPolicy.isCurrent(pending)) {
+                pendingOptIn = null
+                mutable.update { it.copy(optInAuthentication = null) }
+                reply("That opt-in request expired. Say 'enable ${pending?.control?.label ?: "hands-free controls"}' again to start over.")
+                return@launch
+            }
+            pendingOptIn = null
+            mutable.update { it.copy(optInAuthentication = null) }
+            applyOptIn(pending.control, true, pending.source)
+            reply("${pending.control.label.replaceFirstChar { it.uppercaseChar() }} ${if (pending.control.plural) "are" else "is"} now on.")
+        }
+    }
+
+    /** Called by MainActivity when device authentication fails or is cancelled. */
+    fun cancelOptInAuthentication() {
+        viewModelScope.launch {
+            val pending = pendingOptIn
+            pendingOptIn = null
+            mutable.update { it.copy(optInAuthentication = null) }
+            reply("Cancelled. ${pending?.control?.label?.replaceFirstChar { it.uppercaseChar() } ?: "Hands-free controls"} ${if (pending?.control?.plural != false) "are" else "is"} still off.")
+        }
+    }
+
+    private suspend fun applyOptIn(control: HandsFreeControl, enabled: Boolean, authorization: String) {
+        when (control) {
+            HandsFreeControl.HANDS_FREE -> { if (!enabled) voice.stopAll(); app.settings.setHandsFreeControls(enabled) }
+            HandsFreeControl.DIRECT_CALLING -> app.settings.setDirectCalling(enabled)
+            HandsFreeControl.DIRECT_SMS -> app.settings.setDirectSms(enabled)
+            HandsFreeControl.WIFI -> app.settings.setWifiControls(enabled)
+            HandsFreeControl.MOBILE_DATA -> app.settings.setMobileDataControls(enabled)
+        }
+        logOptInChange(control, enabled, authorization)
+    }
+
+    private suspend fun logOptInChange(control: HandsFreeControl, enabled: Boolean, authorization: String) {
+        runCatching {
+            app.database.auditDao().insert(AuditEvent(UUID.randomUUID().toString(), System.currentTimeMillis(),
+                "OptIn:${control.name}", if (enabled) "ENABLED" else "DISABLED", authorization, true))
+            app.database.auditDao().prune()
+        }
+    }
+
     private suspend fun safely(block: suspend () -> Unit) {
         try { block() }
         catch (cancelled: CancellationException) { throw cancelled }

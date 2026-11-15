@@ -36,6 +36,8 @@ import com.chronoit.aivora.data.AssistantSettings
 import com.chronoit.aivora.voice.EnrollmentKind
 import com.chronoit.aivora.voice.VoiceLaunchTickets
 import com.chronoit.aivora.brain.FileOperation
+import com.chronoit.aivora.brain.HandsFreeControl
+import com.chronoit.aivora.brain.HandsFreeOptInPolicy
 import com.chronoit.aivora.brain.ModelDownloadPolicy
 import com.chronoit.aivora.brain.ModelDownloadState
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -82,6 +84,7 @@ open class MainActivity : ComponentActivity() {
     private var recordAfterPermission: (() -> Unit)? = null
     private var actionAuthenticationToken: String? = null
     private var actionAuthenticationSignal: CancellationSignal? = null
+    private var optInAuthenticationInFlight: HandsFreeControl? = null
     private val microphonePermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         val begin = recordAfterPermission
         recordAfterPermission = null
@@ -135,6 +138,27 @@ open class MainActivity : ComponentActivity() {
                 lifecycle.lifecycle.currentStateFlow.first { it.isAtLeast(Lifecycle.State.RESUMED) }
                 model.resumed(true)
                 model.consumeVoiceAuthentication()?.let(::authenticateAction)
+            }
+            // Voice opt-in device authentication: the ViewModel sets
+            // optInAuthentication after the two exact voice phrases; the
+            // setting flips only after this BiometricPrompt succeeds.
+            // The in-flight guard mirrors authenticateAction so a
+            // recomposition cannot launch a second prompt.
+            LaunchedEffect(ui.optInAuthentication) {
+                val control = ui.optInAuthentication ?: return@LaunchedEffect
+                if (optInAuthenticationInFlight != null) return@LaunchedEffect
+                lifecycle.lifecycle.currentStateFlow.first { it.isAtLeast(Lifecycle.State.RESUMED) }
+                if (model.ui.value.optInAuthentication != control) return@LaunchedEffect
+                optInAuthenticationInFlight = control
+                model.resumed(true)
+                try {
+                    authenticateOwner("Confirm your device credential to enable ${control.label}.",
+                        success = { optInAuthenticationInFlight = null; model.completeOptInAuthentication() },
+                        failure = { optInAuthenticationInFlight = null; model.cancelOptInAuthentication() })
+                } catch (_: Exception) {
+                    optInAuthenticationInFlight = null
+                    model.cancelOptInAuthentication()
+                }
             }
             LaunchedEffect(ticket) {
                 val token = ticket ?: return@LaunchedEffect
@@ -341,6 +365,10 @@ open class MainActivity : ComponentActivity() {
         actionAuthenticationSignal?.cancel()
         actionAuthenticationSignal = null
         if (token != null) assistantModel.authenticationFailed(token)
+        if (optInAuthenticationInFlight != null) {
+            optInAuthenticationInFlight = null
+            assistantModel.cancelOptInAuthentication()
+        }
         super.onDestroy()
     }
 
@@ -456,6 +484,9 @@ open class MainActivity : ComponentActivity() {
                 Text("AIVORA keeps an encrypted SMS request/status journal, separate from learned memory. Say SMS status to check its last request. An interrupted or uncertain request is never retried automatically.")
                 Text("Direct SMS requires SMS sending and SIM verification permissions, one ready default SMS SIM, device authentication and exact confirmation. Carrier charges may apply. Android submission is distinct from recipient delivery. Longer messages remain drafts.")
                 Text("Optional. Requires call placement and SIM verification permissions, device authentication and exact confirmation. One unchanged ready default voice SIM/account is supported, without roaming or another active call. Use full international numbers. Otherwise calls open the dialer. Android may require further interaction; connection is not verified.")
+                Text("Voice opt-ins", style = MaterialTheme.typography.titleMedium)
+                Text(HandsFreeOptInPolicy.statusText(settings.handsFreeControls, settings.directCalling, settings.directSms, settings.wifiControls, settings.mobileDataControls))
+                Text("Enable by voice: say \"enable hands-free controls\" — or direct calling, direct SMS, Wi-Fi controls or mobile data controls — then say \"yes, enable\" followed by the same control name, then confirm on your device. A bare \"yes\" never enables anything. Say \"voice controls status\" to hear what is on. Every change, by voice or by switch, is logged in the Developer tab. Disabling by voice needs the same two phrases but no device credential.")
                 var name by remember(settings.identity.assistantDisplayName) { mutableStateOf(settings.identity.assistantDisplayName) }
                 OutlinedTextField(name, { name = it }, label = { Text("What would you like to call me?") }, singleLine = true)
                 Button(onClick = { model.rename(name) }, enabled = name.isNotBlank() && name.length <= 40 && name.none(Char::isISOControl)) { Text("Save assistant name") }
